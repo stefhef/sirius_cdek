@@ -40,9 +40,11 @@ class VkClient:
         return captcha.try_again(key)
 
     def search_group(self, title, count=1000, market=False, sort=6):
+        """Поиск групп в ВК"""
         return self.vk.groups.search(q=title, count=count, market=market, sort=sort)
 
     def search_new_group(self):
+        """Поиск новых групп в ВК"""
         response = requests.get(
             "https://api.vk.com/method/execute.counts/",
             params={
@@ -70,6 +72,7 @@ class VkClient:
 
     @staticmethod
     def get_max_id():
+        """Получить максимальный ID группы в ВК"""
         with open("vk.tmp", "r") as file:
             response = requests.get("https://api.vk.com/method/execute.getTip/",
                                     params={
