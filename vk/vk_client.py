@@ -13,23 +13,19 @@ class VkClient:
     def __init__(self):
 
         if not any((VK_LOGIN, VK_PASSWORD)):
-            raise MissingVariables
+            return
         self.authorization_login_password(login=VK_LOGIN, password=VK_PASSWORD)  # Ну типа надо
 
     def authorization_login_password(self, login, password):
         """Авторизация с использованием логина или пароля"""
-        try:
-            vk_session = vk_api.VkApi(login=login,
-                                      password=password,
-                                      captcha_handler=self.captcha_handler,
-                                      auth_handler=self.auth_handler)
-            vk_session.auth()
-            self.token = vk_session.token["access_token"]  # Странный токен
-            self.vk_api_version = vk_session.api_version
-            self.vk = vk_session.get_api()  # Возможно уже не надо, но да ладно
-        except vk_api.AuthError as error_msg:
-            print(error_msg)
-            raise AuthorizationError("")
+        vk_session = vk_api.VkApi(login=login,
+                                  password=password,
+                                  captcha_handler=self.captcha_handler,
+                                  auth_handler=self.auth_handler)
+        vk_session.auth()
+        self.token = vk_session.token.get("access_token", None)  # Странный токен
+        self.vk_api_version = vk_session.api_version
+        self.vk = vk_session.get_api()  # Возможно уже не надо, но да ладно
 
     @staticmethod
     def captcha_handler(captcha):
@@ -43,6 +39,24 @@ class VkClient:
         # Пробуем снова отправить запрос с капчей
         return captcha.try_again(key)
 
+    def search_group(self, title, count=1000, market=False, sort=6):
+        return self.vk.groups.search(q=title, count=count, market=market, sort=sort)
+
+    def search_new_group(self):
+        response = requests.get(
+            "https://api.vk.com/method/execute.counts/",
+            params={
+                "gid": self.get_max_id(),
+                "access_token": VK_TOKEN,
+                "v": VK_API_VERSION,
+            })
+
+        if response.status_code != 200:
+            raise RequestFailed
+
+        json_response = response.json()
+        return tuple(filter(lambda group: re.search(r"(маркет|магаз)", group["name"]), json_response["response"]))
+
     @staticmethod
     def auth_handler():
         """ При двухфакторной аутентификации вызывается эта функция."""
@@ -54,16 +68,14 @@ class VkClient:
 
         return key, remember_device
 
-    def search_group(self, title, count=1000, market=False, sort=6):
-        return self.vk.groups.search(q=title, count=count, market=market, sort=sort)
-
-    def get_max_id(self):
+    @staticmethod
+    def get_max_id():
         response = requests.get("https://api.vk.com/method/execute.getTip/",
                                 params={
                                     "oid": LAST_MAX_ID,
                                     "range": 100000,
                                     "access_token": VK_TOKEN,
-                                    "v": self.vk_api_version,
+                                    "v": VK_API_VERSION,
                                 })
 
         if response.status_code != 200:
@@ -72,21 +84,6 @@ class VkClient:
         json_response = response.json()
         max_id = json_response["response"]["max"]
         return max_id
-
-    def search_new_group(self):
-        response = requests.get(
-            "https://api.vk.com/method/execute.counts/",
-            params={
-                "gid": self.get_max_id(),
-                "access_token": VK_TOKEN,
-                "v": self.vk_api_version
-            })
-
-        if response.status_code != 200:
-            raise RequestFailed
-
-        json_response = response.json()
-        return tuple(filter(lambda group: re.search(r"(маркет|магаз)", group["name"]), json_response["response"]))
 
 
 if __name__ == '__main__':
