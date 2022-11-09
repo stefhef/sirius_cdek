@@ -70,19 +70,22 @@ class VkClient:
 
     @staticmethod
     def get_max_id():
-        response = requests.get("https://api.vk.com/method/execute.getTip/",
-                                params={
-                                    "oid": LAST_MAX_ID,
-                                    "range": 100000,
-                                    "access_token": VK_TOKEN,
-                                    "v": VK_API_VERSION,
-                                })
+        with open("vk.tmp", "r") as file:
+            response = requests.get("https://api.vk.com/method/execute.getTip/",
+                                    params={
+                                        "oid": file.read(),
+                                        "range": 100000,
+                                        "access_token": VK_TOKEN,
+                                        "v": VK_API_VERSION,
+                                    })
 
         if response.status_code != 200:
             raise RequestFailed
 
         json_response = response.json()
         max_id = json_response["response"]["max"]
+        with open("vk.tmp", "w") as file:
+            file.write(str(max_id))
         return max_id
 
 
