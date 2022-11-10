@@ -3,7 +3,9 @@ import requests
 import re
 from constants import VK_PASSWORD, VK_LOGIN, VK_API_VERSION, LAST_MAX_ID, VK_TOKEN
 from exeptions import MissingVariables, AuthorizationError, RequestFailed
+import os.path
 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 class VkClient:
     vk: vk_api.vk_api.VkApiMethod = None
@@ -43,7 +45,7 @@ class VkClient:
         """Поиск групп в ВК"""
         return self.vk.groups.search(q=title, count=count, market=market, sort=sort)
 
-    def search_new_group(self):
+    def search_new_group(self, *in_title):
         """Поиск новых групп в ВК"""
         response = requests.get(
             "https://api.vk.com/method/execute.counts/",
@@ -57,7 +59,7 @@ class VkClient:
             raise RequestFailed
 
         json_response = response.json()
-        return tuple(filter(lambda group: re.search(r"(маркет|магаз)", group["name"]), json_response["response"]))
+        return tuple(filter(lambda group: re.search(rf"({'|'.join(in_title)})", group["name"]), json_response["response"]))
 
     @staticmethod
     def auth_handler():
@@ -71,13 +73,13 @@ class VkClient:
         return key, remember_device
 
     @staticmethod
-    def get_max_id():
+    def get_max_id(range=100000):
         """Получить максимальный ID группы в ВК"""
-        with open("vk.tmp", "r") as file:
+        with open(f"{BASE_DIR}\\vk.tmp", "r") as file:
             response = requests.get("https://api.vk.com/method/execute.getTip/",
                                     params={
                                         "oid": file.read(),
-                                        "range": 100000,
+                                        "range": range,
                                         "access_token": VK_TOKEN,
                                         "v": VK_API_VERSION,
                                     })
@@ -87,7 +89,7 @@ class VkClient:
 
         json_response = response.json()
         max_id = json_response["response"]["max"]
-        with open("vk.tmp", "w") as file:
+        with open(f"{BASE_DIR}\\vk.tmp", "w") as file:
             file.write(str(max_id))
         return max_id
 
